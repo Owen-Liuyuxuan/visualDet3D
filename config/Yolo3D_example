@@ -4,7 +4,7 @@ import numpy as np
 
 cfg = edict()
 cfg.obj_types = ['Car']
-cfg.post_opt = True
+
 ## trainer
 trainer = edict(
     gpu = 0,
