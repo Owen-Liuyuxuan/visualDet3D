@@ -7,7 +7,7 @@ The package uses registry to register datasets, models, processing functions and
 
 ## Related Paper:
 
-This repo contains the official implementation of 2021 *RAL* paper [**Ground-aware Monocular 3D Object Detection for Autonomous Driving**](https://ieeexplore.ieee.org/document/9327478). Pretrained model can be found at release pages.
+This repo contains the official implementation of 2021 *RAL* paper [**Ground-aware Monocular 3D Object Detection for Autonomous Driving**](https://ieeexplore.ieee.org/document/9327478). [Arxiv Page](https://arxiv.org/abs/2102.00690). Pretrained model can be found at release pages.
 ```
 @ARTICLE{9327478,
   author={Y. {Liu} and Y. {Yuan} and M. {Liu}},
@@ -33,7 +33,7 @@ Reference: this repo borrows codes and ideas from [retinanet](https://github.com
 [M3D-RPN](https://github.com/garrickbrazil/M3D-RPN),
 [DORN](https://github.com/dontLoveBugs/SupervisedDepthPrediction),
 [EdgeNets](https://github.com/sacmehta/EdgeNets),
-[det3](https://git.ram-lab.com/yun/det3)
+[det3](https://github.com/pyun-ram/FL3D)
 
 ## Setup
 ### Environment setup. 
@@ -69,8 +69,21 @@ The content of the selected config file will be recorded in tensorboard at the b
 
 Please check the template's comments and other comments in codes to fully exploit the repo.
 
-## Further Info
+## Further Info and Bug Issues
 
-0. Read the [wiki](https://github.com/Owen-Liuyuxuan/visualDet3D/wiki)
 1. Open issues on the repo if you meet troubles or find a bug or have some suggestions.
-2. 
+2. Email to yliuhb@connect.ust.hk
+
+
+## Other Resources
+
+- [RAM-LAB](https://www.ram-lab.com)
+- [Collections of Papers and Readings](https://owen-liuyuxuan.github.io/papers_reading_sharing.github.io/); [Collection for Mono3D](https://owen-liuyuxuan.github.io/papers_reading_sharing.github.io/3dDetection/RecentCollectionForMono3D/); [Ground-Aware 3D](https://owen-liuyuxuan.github.io/papers_reading_sharing.github.io/3dDetection/GroundAwareConvultion/)
+
+## Related Codes
+
+- [MMDetection](https://github.com/open-mmlab/mmdetection)
+- [M3D-RPN](https://github.com/garrickbrazil/M3D-RPN)
+- [Retinanet](https://github.com/yhenon/pytorch-retinanet)
+- [DORN](https://github.com/dontLoveBugs/SupervisedDepthPrediction)
+- [det3](https://github.com/pyun-ram/FL3D)
