@@ -12,7 +12,6 @@ from visualDet3D.networks.heads.anchors import Anchors
 from visualDet3D.networks.utils.utils import calc_iou, BBox3dProjector
 from visualDet3D.data.pipeline import build_augmentator
 from visualDet3D.data.kitti.kittidata import KittiData
-from visualDet3D.data.kitti.utils import generate_dispariy_from_velo
 from visualDet3D.utils.timer import Timer
 from visualDet3D.utils.utils import cfg_from_file
 

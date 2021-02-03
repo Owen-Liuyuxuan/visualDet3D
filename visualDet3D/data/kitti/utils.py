@@ -132,6 +132,5 @@ if __name__ == "__main__":
     P2 = np.zeros([3, 4])
     pixels = _leftcam2imgplane(pts, P2)
 
-    generate_dispariy_from_velo(pts, 372, 1000, Tr_velo_to_cam, R0_rect, P2)
 
     print(points.shape)
