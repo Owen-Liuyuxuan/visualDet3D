@@ -57,7 +57,7 @@ class LookGround(nn.Module):
         # Apply shift in Y direction
         h_mean = 1.535
         y_shifts_base = F.relu(
-            h_mean * (yy_grid - cy) / 2 * (self.relative_elevation - 0.5 * h_mean)
+            h_mean * (yy_grid - cy) / (2 * (self.relative_elevation - 0.5 * h_mean))
         ) / (yy_grid.shape[1] * 0.5) # [1, H, W]
         y_shifts = y_shifts_base + disp[:, 0, :, :]  # Disparity is passed in NCHW format with 1 channel
         flow_field = torch.stack((x_base, y_base + y_shifts), dim=3)
