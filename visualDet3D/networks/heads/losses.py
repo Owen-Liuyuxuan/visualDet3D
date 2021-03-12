@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from visualDet3D.networks.utils.utils import calc_iou
+from visualDet3D.networks.lib.disparity_loss import stereo_focal_loss
 from visualDet3D.utils.timer import profile
 
 
@@ -117,3 +118,18 @@ class IoULoss(nn.Module):
         ious = overlap / union
         ious = torch.clamp(ious, min=eps)
         return -ious.log()
+
+class DisparityLoss(nn.Module):
+    """Some Information about DisparityLoss"""
+    def __init__(self, maxdisp:int=64):
+        super(DisparityLoss, self).__init__()
+        #self.register_buffer("disp",torch.Tensor(np.reshape(np.array(range(maxdisp)),[1,maxdisp,1,1])))
+        self.criterion = stereo_focal_loss.StereoFocalLoss(maxdisp)
+
+    def forward(self, x:torch.Tensor, label:torch.Tensor)->torch.Tensor:
+        #x = torch.softmax(x, dim=1)
+        label = label.cuda().unsqueeze(1)
+        loss = self.criterion(x, label, variance=0.5)
+        #mask = (label > 0) * (label < 64)
+        #loss = nn.functional.smooth_l1_loss(disp[mask], label[mask])
+        return loss

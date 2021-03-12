@@ -11,6 +11,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 import torch.nn as nn
 import torch.utils.data
+from visualDet3D.utils.utils import alpha2theta_3d, theta2alpha_3d
 from visualDet3D.data.kitti.kittidata import KittiData, KittiObj, KittiCalib
 from visualDet3D.data.pipeline import build_augmentator
 import os
@@ -60,6 +61,8 @@ class KittiMonoDataset(torch.utils.data.Dataset):
 
     def _reproject(self, P2:np.ndarray, transformed_label:List[KittiObj]) -> Tuple[List[KittiObj], np.ndarray]:
         bbox3d_state = np.zeros([len(transformed_label), 7]) #[camera_x, camera_y, z, w, h, l, alpha]
+        for obj in transformed_label:
+            obj.alpha = theta2alpha_3d(obj.ry, obj.x, obj.z, P2)
         bbox3d_origin = torch.tensor([[obj.x, obj.y - 0.5 * obj.h, obj.z, obj.w, obj.h, obj.l, obj.alpha] for obj in transformed_label], dtype=torch.float32)
         abs_corner, homo_corner, _ = self.projector(bbox3d_origin, bbox3d_origin.new(P2))
         for i, obj in enumerate(transformed_label):

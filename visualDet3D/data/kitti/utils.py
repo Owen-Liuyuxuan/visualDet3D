@@ -81,6 +81,83 @@ def _leftcam2imgplane(pts, P2):
     pixels[:, 1] /= pixels[:, 2] + 1e-6
     return pixels[:, :2]
 
+@jit(nopython=True, cache=True)
+def generate_dispariy_from_velo(pc_velo:np.ndarray,
+                                height:int,
+                                width:int,
+                                Tr_velo_to_cam:np.ndarray,
+                                R0_rect:np.ndarray,
+                                P2:np.ndarray,
+                                baseline:float=0.54):
+    """
+        Generate disparity map from point clouds.
+        Args:
+            pc_velo         : point clouds in lidar coordinate; np.array of shape [n, 3] -> [[x, y, z]; ...]
+            height, width   : output disparity map shape; int
+            Tr_velo_to_cam  : transform from lidar to camera; np.array [3, 4] -> [R | T]
+            R0_rect         : rotation transform into camera coordinates(z forward, x towards right); np.array [3, 4] -> [R | T]
+            P2              : transform from P0 camera coordinates to target image plane; np.array [3, 4] -> [R | T]
+            baseline        : baseline length in meter of the stereo setup; float
+        Output:
+            disp_map        : disparity map; np.array of [height, width], dtype=np.uint16; if disp_map==0 -> should be ignore
+    """
+    #pts_2d = calib.project_velo_to_image(pc_velo)
+    pts_cam = _lidar2leftcam(pc_velo, Tr_velo_to_cam, R0_rect)
+    pts_2d  = _leftcam2imgplane(pts_cam, P2)
+    fov_inds = (pts_2d[:, 0] < width - 1) & (pts_2d[:, 0] >= 0) & \
+               (pts_2d[:, 1] < height - 1) & (pts_2d[:, 1] >= 0)
+    fov_inds = fov_inds & (pc_velo[:, 0] > 2)
+    imgfov_pts_2d = pts_2d[fov_inds, :]
+    imgfov_pc_rect = pts_cam[fov_inds, :]
+    depth_map = np.ones((height, width)) * 1e9
+    imgfov_pts_2d =  imgfov_pts_2d.astype(np.int32)#np.round(imgfov_pts_2d).astype(int)
+    for i in range(imgfov_pts_2d.shape[0]):
+        depth = imgfov_pc_rect[i, 2]
+        depth_map[int(imgfov_pts_2d[i, 1]), int(imgfov_pts_2d[i, 0])] = depth
+
+    disp_map = (P2[0, 0] * baseline) / (depth_map) * 16
+    disp_map = disp_map.astype(np.uint16)
+    return disp_map
+
+@jit(nopython=True, cache=True)
+def generate_depth_from_velo(pc_velo:np.ndarray,
+                                height:int,
+                                width:int,
+                                Tr_velo_to_cam:np.ndarray,
+                                R0_rect:np.ndarray,
+                                P2:np.ndarray,
+                                base_depth:Optional[np.ndarray]=None):
+    """
+        Generate disparity map from point clouds.
+        Args:
+            pc_velo         : point clouds in lidar coordinate; np.array of shape [n, 3] -> [[x, y, z]; ...]
+            height, width   : output disparity map shape; int
+            Tr_velo_to_cam  : transform from lidar to camera; np.array [3, 4] -> [R | T]
+            R0_rect         : rotation transform into camera coordinates(z forward, x towards right); np.array [3, 4] -> [R | T]
+            P2              : transform from P0 camera coordinates to target image plane; np.array [3, 4] -> [R | T]
+            baseline        : baseline length in meter of the stereo setup; float
+        Output:
+            disp_map        : disparity map; np.array of [height, width], dtype=np.uint16; if disp_map==0 -> should be ignore
+    """
+    #pts_2d = calib.project_velo_to_image(pc_velo)
+    pts_cam = _lidar2leftcam(pc_velo, Tr_velo_to_cam, R0_rect)
+    pts_2d  = _leftcam2imgplane(pts_cam, P2)
+    fov_inds = (pts_2d[:, 0] < width - 1) & (pts_2d[:, 0] >= 0) & \
+               (pts_2d[:, 1] < height - 1) & (pts_2d[:, 1] >= 0)
+    fov_inds = fov_inds & (pc_velo[:, 0] > 2)
+    imgfov_pts_2d = pts_2d[fov_inds, :]
+    imgfov_pc_rect = pts_cam[fov_inds, :]
+
+    if base_depth is None:
+        depth_map = np.zeros((height, width))
+    else:
+        depth_map = base_depth
+    imgfov_pts_2d =  imgfov_pts_2d.astype(np.int32)#np.round(imgfov_pts_2d).astype(int)
+    for i in range(imgfov_pts_2d.shape[0]):
+        depth = imgfov_pc_rect[i, 2]
+        depth_map[int(imgfov_pts_2d[i, 1]), int(imgfov_pts_2d[i, 0])] = depth
+
+    return depth_map
 
 def write_result_to_file(base_result_path:str, 
                         index:int, scores, bbox_2d, bbox_3d_state_3d=None, thetas=None, obj_types=['Car', 'Pedestrian', 'Cyclist'], threshold=0.4):

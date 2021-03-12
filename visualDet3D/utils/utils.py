@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 import cv2
 import sys
@@ -26,19 +27,55 @@ class LossLogger():
             name = key + '/' + self.data_split
             self.recorder.add_scalar(name, self.loss_stats[key].avg, step)
 
-def convertAlpha2Rot(alpha, z3d, x3d):
-    
-    ry3d = alpha + np.arctan2(-z3d, x3d) + 0.5 * np.pi
+def convertAlpha2Rot(alpha, cx, P2):
+    cx_p2 = P2[..., 0, 2]
+    fx_p2 = P2[..., 0, 0]
+    ry3d = alpha + np.arctan2(cx - cx_p2, fx_p2)
     ry3d[np.where(ry3d > np.pi)] -= 2 * np.pi
     ry3d[np.where(ry3d <= -np.pi)] += 2 * np.pi
     return ry3d
 
 
-def convertRot2Alpha(ry3d, z3d, x3d):
-
-    alpha = ry3d - np.arctan2(-z3d, x3d) - 0.5 * np.pi
+def convertRot2Alpha(ry3d, cx, P2):
+    cx_p2 = P2[..., 0, 2]
+    fx_p2 = P2[..., 0, 0]
+    alpha = ry3d - np.arctan2(cx - cx_p2, fx_p2)
     alpha[alpha > np.pi] -= 2 * np.pi
     alpha[alpha <= -np.pi] += 2 * np.pi
+    return alpha
+
+def alpha2theta_3d(alpha, x, z, P2):
+    """ Convert alpha to theta with 3D position
+    Args:
+        alpha [torch.Tensor/ float or np.ndarray]: size: [...]
+        x     []: size: [...]
+        z     []: size: [...]
+        P2    [torch.Tensor/ np.ndarray]: size: [3, 4]
+    Returns:
+        theta []: size: [...]
+    """
+    offset = P2[0, 3] / P2[0, 0]
+    if isinstance(alpha, torch.Tensor):
+        theta = alpha + torch.atan2(x + offset, z)
+    else:
+        theta = alpha + np.arctan2(x + offset, z)
+    return theta
+
+def theta2alpha_3d(theta, x, z, P2):
+    """ Convert theta to alpha with 3D position
+    Args:
+        theta [torch.Tensor/ float or np.ndarray]: size: [...]
+        x     []: size: [...]
+        z     []: size: [...]
+        P2    [torch.Tensor/ np.ndarray]: size: [3, 4]
+    Returns:
+        alpha []: size: [...]
+    """
+    offset = P2[0, 3] / P2[0, 0]
+    if isinstance(theta, torch.Tensor):
+        alpha = theta - torch.atan2(x + offset, z)
+    else:
+        alpha = theta - np.arctan2(x + offset, z)
     return alpha
 
 def draw_3D_box(img, corners, color = (255, 255, 0)):

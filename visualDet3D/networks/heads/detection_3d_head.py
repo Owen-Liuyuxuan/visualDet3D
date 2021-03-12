@@ -13,7 +13,8 @@ from visualDet3D.networks.heads.anchors import Anchors
 from visualDet3D.networks.utils.utils import calc_iou, BackProjection, BBox3dProjector
 from visualDet3D.networks.lib.fast_utils.hill_climbing import post_opt
 from visualDet3D.networks.utils.utils import ClipBoxes
-from visualDet3D.networks.lib.blocks import AnchorFlatten
+from visualDet3D.networks.lib.blocks import AnchorFlatten, ConvBnReLU
+from visualDet3D.networks.backbones.resnet import BasicBlock
 from visualDet3D.networks.lib.ops import ModulatedDeformConvPack
 from visualDet3D.networks.lib.look_ground import LookGround
 
@@ -387,7 +388,6 @@ class AnchorBasedDetection3DHead(nn.Module):
             nms_bbox = bboxes[:, :4] + label.float().unsqueeze() * (max_coordinate)
             keep_inds = nms(nms_bbox, max_score, nms_iou_thr)
 
-
         bboxes      = bboxes[keep_inds]
         max_score   = max_score[keep_inds]
         label       = label[keep_inds]
@@ -492,3 +492,38 @@ class AnchorBasedDetection3DHead(nn.Module):
         reg_loss = weighted_regression_losses.mean(dim=0, keepdim=True)
 
         return cls_loss, reg_loss, dict(cls_loss=cls_loss, reg_loss=reg_loss, total_loss=cls_loss + reg_loss)
+
+class StereoHead(AnchorBasedDetection3DHead):
+    def init_layers(self, num_features_in,
+                          num_anchors:int,
+                          num_cls_output:int,
+                          num_reg_output:int,
+                          cls_feature_size:int=1024,
+                          reg_feature_size:int=1024,
+                          **kwargs):
+
+        self.cls_feature_extraction = nn.Sequential(
+            nn.Conv2d(num_features_in, cls_feature_size, kernel_size=3, padding=1),
+            nn.Dropout2d(0.3),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(cls_feature_size, cls_feature_size, kernel_size=3, padding=1),
+            nn.Dropout2d(0.3),
+            nn.ReLU(inplace=True),
+
+            nn.Conv2d(cls_feature_size, num_anchors*(num_cls_output), kernel_size=3, padding=1),
+            AnchorFlatten(num_cls_output)
+        )
+        self.cls_feature_extraction[-2].weight.data.fill_(0)
+        self.cls_feature_extraction[-2].bias.data.fill_(0)
+
+        self.reg_feature_extraction = nn.Sequential(
+
+            ConvBnReLU(num_features_in, reg_feature_size, (3, 3)),
+            BasicBlock(reg_feature_size, reg_feature_size),
+            nn.ReLU(),
+            nn.Conv2d(reg_feature_size, num_anchors*num_reg_output, kernel_size=3, padding=1),
+            AnchorFlatten(num_reg_output)
+        )
+
+        self.reg_feature_extraction[-2].weight.data.fill_(0)
+        self.reg_feature_extraction[-2].bias.data.fill_(0)

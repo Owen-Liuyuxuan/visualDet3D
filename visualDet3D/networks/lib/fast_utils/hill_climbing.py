@@ -14,12 +14,12 @@ def post_opt(bbox_2d, bbox3d_state_3d, P2, cx, cy):
     box_2d = bbox_2d.detach().cpu().numpy()
     state = bbox3d_state_3d.detach().cpu().numpy()
     x, y, z, w, h, l, alpha = state[0], state[1], state[2],state[3],state[4],state[5], state[6]
-    theta = convertAlpha2Rot([alpha], z, x)[0]
+    theta = convertAlpha2Rot(np.array([alpha]), cx, P2)[0]
     theta, ratio, w, h, l = post_optimization(p2, p2_inv, box_2d, cx, cy, z,
                                        w, h, l, theta, step_r_init=0.4, r_lim=0.01)
     z = z*ratio
     
-    alpha = convertRot2Alpha([theta], z, x)[0]
+    alpha = convertRot2Alpha(np.array([theta]), cx, P2)[0]
     return bbox3d_state_3d.new([cx,cy,z, w,h,l,alpha])
 
 @jit(nopython=True, cache=True)
