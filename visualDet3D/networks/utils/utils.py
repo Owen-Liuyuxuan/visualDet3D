@@ -5,6 +5,7 @@ import torch.nn as nn
 import numpy as np
 import cv2
 from functools import wraps
+from visualDet3D.utils.utils import alpha2theta_3d, theta2alpha_3d
 
 
 def get_num_parameters(model):
@@ -224,13 +225,13 @@ class BBox3dProjector(nn.Module):
                 unnormalize bbox_3d [N, 7] with  x, y, z, w, h, l, alpha
                 tensor_p2: tensor of [3, 4]
             output:
-                [N, 8, 3] with corner point in camera frame
+                [N, 8, 3] with corner point in camera frame # 8 is determined by the shape of self.corner_matrix
                 [N, 8, 3] with corner point in image frame
                 [N, ] thetas
         """
         relative_eight_corners = 0.5 * self.corner_matrix * bbox_3d[:, 3:6].unsqueeze(1)  # [N, 8, 3]
         # [batch, N, ]
-        thetas = bbox_3d[:, 6] + torch.atan2(-bbox_3d[:, 2], bbox_3d[:, 0]) + 0.5 * np.pi
+        thetas = alpha2theta_3d(bbox_3d[..., 6], bbox_3d[..., 0], bbox_3d[..., 2], tensor_p2)
         _cos = torch.cos(thetas).unsqueeze(1)  # [N, 1]
         _sin = torch.sin(thetas).unsqueeze(1)  # [N, 1]
         rotated_corners_x, rotated_corners_z = (
@@ -243,7 +244,7 @@ class BBox3dProjector(nn.Module):
         abs_corners = rotated_corners + \
             bbox_3d[:, 0:3].unsqueeze(1)  # [N, 8, 3]
         camera_corners = torch.cat([abs_corners,
-            abs_corners.new_ones([abs_corners.shape[0], 8, 1])],
+            abs_corners.new_ones([abs_corners.shape[0], self.corner_matrix.shape[0], 1])],
             dim=-1).unsqueeze(3)  # [N, 8, 4, 1]
         camera_coord = torch.matmul(tensor_p2, camera_corners).squeeze(-1)  # [N, 8, 3]
 

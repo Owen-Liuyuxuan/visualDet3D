@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from _path_init import *
 from visualDet3D.networks.utils.registry import DETECTOR_DICT, DATASET_DICT, PIPELINE_DICT
-from visualDet3D.networks.utils.utils import get_num_parameters
+from visualDet3D.networks.utils.utils import BackProjection, BBox3dProjector, get_num_parameters
 from visualDet3D.evaluator.kitti.evaluate import evaluate
 import visualDet3D.data.kitti.dataset
 from visualDet3D.utils.timer import Timer
@@ -61,7 +61,9 @@ def main(config="config/config.py", experiment_name="default", world_size=1, loc
         writer = None
 
     ## Set up GPU and distribution process
-    gpu = min(local_rank if is_distributed else cfg.trainer.gpu, torch.cuda.device_count() - 1)
+    if is_distributed:
+        cfg.trainer.gpu = local_rank # local_rank will overwrite the GPU in configure file
+    gpu = min(cfg.trainer.gpu, torch.cuda.device_count() - 1)
     torch.backends.cudnn.benchmark = getattr(cfg.trainer, 'cudnn', False)
     torch.cuda.set_device(gpu)
     if is_distributed:
@@ -142,7 +144,7 @@ def main(config="config/config.py", experiment_name="default", world_size=1, loc
         if training_loss_logger:
             training_loss_logger.reset()
         for iter_num, data in enumerate(dataloader_train):
-            training_dection(data, detector, optimizer, writer, training_loss_logger, global_step, cfg)
+            training_dection(data, detector, optimizer, writer, training_loss_logger, global_step, epoch_num, cfg)
 
             global_step += 1
 
@@ -151,12 +153,15 @@ def main(config="config/config.py", experiment_name="default", world_size=1, loc
 
             if is_logging and global_step % cfg.trainer.disp_iter == 0:
                 ## Log loss, print out and write to tensorboard in main process
-                log_str = 'Epoch: {} | Iteration: {}  | Running loss: {:1.5f} | eta:{}'.format(
+                if 'total_loss' not in training_loss_logger.loss_stats:
+                    print(f"\nIn epoch {epoch_num}, iteration:{iter_num}, global_step:{global_step}, total_loss not found in logger.")
+                else:
+                    log_str = 'Epoch: {} | Iteration: {}  | Running loss: {:1.5f} | eta:{}'.format(
                         epoch_num, iter_num, training_loss_logger.loss_stats['total_loss'].avg,
                         timer.compute_eta(global_step, len(dataloader_train) * cfg.trainer.max_epochs))
-                print(log_str, end='\r')
-                writer.add_text("training_log/train", log_str, global_step)
-                training_loss_logger.log(global_step)
+                    print(log_str, end='\r')
+                    writer.add_text("training_log/train", log_str, global_step)
+                    training_loss_logger.log(global_step)
 
         if not is_iter_based:
             scheduler.step()

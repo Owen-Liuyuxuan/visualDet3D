@@ -27,3 +27,16 @@ def test_mono_detection(data, module:nn.Module,
 
     return scores, bbox, obj_types
 
+@PIPELINE_DICT.register_module
+@torch.no_grad()
+def test_stereo_detection(data, module:nn.Module,
+                     writer:SummaryWriter, 
+                     loss_logger:LossLogger=None, 
+                     global_step:int=None, 
+                     cfg:EasyDict=None) -> Tuple[torch.Tensor, torch.Tensor, List[str]]:
+    left_images, right_images, P2, P3 = data[0], data[1], data[2], data[3]
+
+    scores, bbox, obj_index = module([left_images.cuda().float().contiguous(), right_images.cuda().float().contiguous(), torch.tensor(P2).cuda().float(), torch.tensor(P3).cuda().float()])
+    obj_types = [cfg.obj_types[i.item()] for i in obj_index]
+
+    return scores, bbox, obj_types

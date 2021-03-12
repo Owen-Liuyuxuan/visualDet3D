@@ -16,13 +16,15 @@ import cv2
 import math
 import os
 import sys
+from easydict import EasyDict
+from typing import List
 from matplotlib import pyplot as plt
 from visualDet3D.networks.utils.utils import BBox3dProjector
-from visualDet3D.utils.utils import draw_3D_box
+from visualDet3D.utils.utils import draw_3D_box, theta2alpha_3d
 from visualDet3D.networks.utils.registry import AUGMENTATION_DICT
 from visualDet3D.data.kitti.kittidata import KittiObj
 import torch
-from .augmentation_builder import Compose
+from .augmentation_builder import Compose, build_single_augmentator
 
 @AUGMENTATION_DICT.register_module
 class ConvertToFloat(object):
@@ -293,6 +295,31 @@ class CropRight(object):
 
         return left_image, right_image, p2, p3, labels, image_gt, lidar
 
+@AUGMENTATION_DICT.register_module
+class FilterObject(object):
+    """
+        Filtering out object completely outside of the box;
+    """
+    def __init__(self):
+        pass
+
+    def __call__(self, left_image, right_image=None, p2=None, p3=None, labels=None, image_gt=None, lidar=None):
+        height, width = left_image.shape[0:2]
+
+        if labels is not None:
+            new_labels = []
+            if isinstance(labels, list):
+                # scale all coordinates
+                for obj in labels:
+                    is_outside = (
+                        obj.bbox_b < 0 or obj.bbox_t > height or obj.bbox_r < 0 or obj.bbox_l > width
+                    )
+                    if not is_outside:
+                        new_labels.append(obj)
+        else:
+            new_labels = None
+        
+        return left_image, right_image, p2, p3, new_labels, image_gt, lidar
 
 @AUGMENTATION_DICT.register_module
 class RandomCropToWidth(object):
@@ -402,13 +429,75 @@ class RandomMirror(object):
                         obj.ry = ry
 
                         # alpha 
-                        obj.alpha = ry - np.arctan2(-z, obj.x) - 0.5 * np.pi
-
+                        obj.alpha = theta2alpha_3d(ry, obj.x, z, p2)
+                
             if lidar is not None:
                 lidar[:, :, 0] = -lidar[:, :, 0]
         
         return left_image, right_image, p2, p3, labels, image_gt, lidar
 
+@AUGMENTATION_DICT.register_module
+class RandomWarpAffine(object):
+    """
+        Randomly random scale and random shift the image. Then resize to a fixed output size. 
+    """
+    def __init__(self, scale_lower=0.6, scale_upper=1.4, shift_border=128, output_w=1280, output_h=384):
+        self.scale_lower    = scale_lower
+        self.scale_upper    = scale_upper
+        self.shift_border   = shift_border
+        self.output_w       = output_w
+        self.output_h       = output_h
+
+    def __call__(self, left_image, right_image=None, p2=None, p3=None, labels=None, image_gt=None, lidar=None):
+        s_original = max(left_image.shape[0], left_image.shape[1])
+        center_original = np.array([left_image.shape[1] / 2., left_image.shape[0] / 2.], dtype=np.float32)
+        scale = s_original * np.random.uniform(self.scale_lower, self.scale_upper)
+        center_w = np.random.randint(low=self.shift_border, high=left_image.shape[1] - self.shift_border)
+        center_h = np.random.randint(low=self.shift_border, high=left_image.shape[0] - self.shift_border)
+
+        final_scale = max(self.output_w, self.output_h) / scale
+        final_shift_w = self.output_w / 2 - center_w * final_scale
+        final_shift_h = self.output_h / 2 - center_h * final_scale
+        affine_transform = np.array(
+            [
+                [final_scale, 0, final_shift_w],
+                [0, final_scale, final_shift_h]
+            ], dtype=np.float32
+        )
+
+        left_image = cv2.warpAffine(left_image, affine_transform,
+                                    (self.output_w, self.output_h), flags=cv2.INTER_LINEAR)
+        if right_image is not None:
+            right_image = cv2.warpAffine(right_image, affine_transform,
+                                    (self.output_w, self.output_h), flags=cv2.INTER_LINEAR)
+
+        if image_gt is not None:
+            image_gt = cv2.warpAffine(image_gt, affine_transform,
+                                    (self.output_w, self.output_h), flags=cv2.INTER_LINEAR)
+
+        if p2 is not None:
+            p2[0:2, :] *= final_scale
+            p2[0, 2] = p2[0, 2] + final_shift_w               # cy' = cy - dv
+            p2[0, 3] = p2[0, 3] + final_shift_w * p2[2, 3] # ty' = ty - dv * tz
+            p2[1, 2] = p2[1, 2] + final_shift_h               # cy' = cy - dv
+            p2[1, 3] = p2[1, 3] + final_shift_h * p2[2, 3] # ty' = ty - dv * tz
+
+        if p3 is not None:
+            p3[0:2, :] *= final_scale
+            p3[0, 2] = p3[0, 2] + final_shift_w               # cy' = cy - dv
+            p3[0, 3] = p3[0, 3] + final_shift_w * p3[2, 3] # ty' = ty - dv * tz
+            p3[1, 2] = p3[1, 2] + final_shift_h               # cy' = cy - dv
+            p3[1, 3] = p3[1, 3] + final_shift_h * p3[2, 3] # ty' = ty - dv * tz
+        
+        if labels:
+            if isinstance(labels, list):
+                for obj in labels:
+                    obj.bbox_l = obj.bbox_l * final_scale + final_shift_w
+                    obj.bbox_r = obj.bbox_r * final_scale + final_shift_w
+                    obj.bbox_t = obj.bbox_t * final_scale + final_shift_h
+                    obj.bbox_b = obj.bbox_b * final_scale + final_shift_h
+
+        return left_image, right_image, p2, p3, labels, image_gt, lidar
 
 @AUGMENTATION_DICT.register_module
 class RandomHue(object):
@@ -508,6 +597,35 @@ class RandomBrightness(object):
                 right_image += delta
         return left_image, right_image, p2, p3, labels, image_gt, lidar
 
+@AUGMENTATION_DICT.register_module
+class RandomEigenvalueNoise(object):
+    """
+        Randomly apply noise in RGB color channels based on the eigenvalue and eigenvector of ImageNet
+    """
+    def __init__(self, distort_prob=1.0,
+                       alphastd=0.1,
+                       eigen_value=np.array([0.2141788, 0.01817699, 0.00341571], dtype=np.float32),
+                       eigen_vector=np.array([
+                            [-0.58752847, -0.69563484, 0.41340352],
+                            [-0.5832747, 0.00994535, -0.81221408],
+                            [-0.56089297, 0.71832671, 0.41158938]
+                        ], dtype=np.float32)
+                ):
+        self.distort_prob = distort_prob
+        self._eig_val = eigen_value
+        self._eig_vec = eigen_vector
+        self.alphastd = alphastd
+
+    def __call__(self, left_image, right_image=None, p2=None, p3=None, labels=None, image_gt=None, lidar=None):
+        if random.rand() <= self.distort_prob:
+            alpha = np.random.normal(scale=self.alphastd, size=(3, ))
+            noise = np.dot(self._eig_vec, self._eig_val * alpha) * 255
+
+            left_image += noise
+            if right_image is not None:
+                right_image += noise
+            
+        return left_image, right_image, p2, p3, labels, image_gt, lidar
 
 @AUGMENTATION_DICT.register_module
 class PhotometricDistort(object):
@@ -545,7 +663,7 @@ class PhotometricDistort(object):
         distortion.insert(0, self.rand_brightness)
 
         # compose transformation
-        distortion = Compose(distortion)
+        distortion = Compose.from_transforms(distortion)
 
         return distortion(left_image.copy(), right_image if right_image is None else right_image.copy(), p2, p3, labels, image_gt, lidar)
 
@@ -565,7 +683,7 @@ class Augmentation(object):
         self.distort_prob = cfg.distortProb
 
         if cfg.distortProb <= 0:
-            self.augment = Compose([
+            self.augment = Compose.from_transforms([
                 ConvertToFloat(),
                 CropTop(cfg.crop_top),
                 Resize(self.size),
@@ -573,7 +691,7 @@ class Augmentation(object):
                 Normalize(self.mean, self.stds)
             ])
         else:
-            self.augment = Compose([
+            self.augment = Compose.from_transforms([
                 ConvertToFloat(),
                 PhotometricDistort(self.distort_prob),
                 CropTop(cfg.crop_top),
@@ -598,7 +716,7 @@ class Preprocess(object):
         self.stds = cfg.rgb_std
         self.size = cfg.cropSize
 
-        self.preprocess = Compose([
+        self.preprocess = Compose.from_transforms([
             ConvertToFloat(),
             CropTop(cfg.crop_top),
             Resize(self.size),
@@ -612,3 +730,25 @@ class Preprocess(object):
         #img = np.transpose(img, [2, 0, 1])
 
         return left_image, right_image, p2, p3, labels, image_gt, lidar
+
+@AUGMENTATION_DICT.register_module
+class Shuffle(object):
+    """
+        Initialize a sequence of transformations. During function call, it will randomly shuffle the augmentation calls.
+
+        Can be used with Compose to build complex augmentation structures.
+    """
+    def __init__(self, aug_list:List[EasyDict]):
+        self.transforms = [
+            build_single_augmentator(aug_cfg) for aug_cfg in aug_list
+        ]
+
+    def __call__(self, left_image, right_image=None, p2=None, p3=None, labels=None, image_gt=None, lidar=None):
+        # We aim to keep the original order of the initialized transforms in self.transforms, so we only randomize the indexes.
+        shuffled_indexes = np.random.permutation(len(self.transforms))
+
+        for index in shuffled_indexes:
+            left_image, right_image, p2, p3, labels, image_gt, lidar = self.transforms[index](left_image, right_image, p2, p3, labels, image_gt, lidar)
+        
+        return left_image, right_image, p2, p3, labels, image_gt, lidar
+
