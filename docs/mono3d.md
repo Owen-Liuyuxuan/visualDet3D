@@ -24,7 +24,8 @@ cd ..
 
 ## produce validation/test result # we only support single GPU testing
 # You can run ./launcher/eval.sh without arguments to see helper documents
-./launcher/eval.sh --config/$CONFIG_FILE.py 0 $CHECKPOINT_PATH validation/test
+./launcher/eval.sh --config/$CONFIG_FILE.py 0 $CHECKPOINT_PATH validation # test on validation split
+./launcher/eval.sh --config/$CONFIG_FILE.py 0 $CHECKPOINT_PATH test # test on test split
 ```
 
 ## Testing on Lyft dataset without retraining
