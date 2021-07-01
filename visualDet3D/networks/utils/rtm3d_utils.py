@@ -1,3 +1,4 @@
+from typing import List, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
@@ -125,6 +126,60 @@ def _nms(heat, kernel=3):
 
     return heat * keep
 
+def decode_depth_inv_sigmoid(depth:torch.Tensor)->torch.Tensor:
+    """Decode depth from network prediction to 3D depth
+
+    Args:
+        depth (torch.Tensor): depth from network prediction (un-activated)
+
+    Returns:
+        torch.Tensor: 3D depth for output
+    """    
+    depth_decoded = 1 / torch.sigmoid(depth) - 1
+    return depth_decoded
+
+def decode_depth_from_keypoints(keypoints:torch.Tensor,
+                                dimensions:torch.Tensor,
+                                calib:torch.Tensor,
+                                down_ratio:int=4,
+                                group0_index:List[Tuple[int, int]]=[(7, 3), (0, 4)],
+                                group1_index:List[Tuple[int, int]]=[(2, 6), (1, 5)],
+                                min_depth:float=0.1,
+                                max_depth:float=100,
+                                EPS:float=1e-8)->torch.Tensor:
+    """Decode depth from keypoints according to MonoFlex
+
+    Args:
+        keypoints (torch.Tensor): Tensor of shape [*, 10, 2], 8 vertices + top/bottom
+        dimensions (torch.Tensor): Tensor of shape [*, 3], whl
+        calibs (torch.Tensor): Calibration matrix P2 [*, 4, 4]
+        down_ratio (int, optional): Down sample ratio of the predicted keypoints. Defaults to 4
+        group0_index (List[Tuple[int, int]], optional): Group of index. Defaults to [0, 3, 4, 7].
+        group1_index (List[Tuple[int, int]], optional): Group of index for depth 2. Defaults to [1, 2, 5, 6].
+        min_depth (float, optional): min depth prediction. Defaults to 0.1
+        max_depth (float, optional): max depth prediction. Defaults to 100
+        EPS (float, optional): Small numbers. Defaults to 1e-8
+
+    Returns:
+        torch.Tensor: [*, 3]  depth computed from three groups of keypoints (top/bottom, group0, group1)
+    """
+    pred_height_3D = dimensions[..., 1].detach() #[*]
+
+    center_height = keypoints[..., -2, 1] - keypoints[:, -1, 1] #[*]
+    corner_02_height = keypoints[..., group0_index[0], 1] - keypoints[..., group0_index[1], 1] #[*, 2]
+    corner_13_height = keypoints[..., group1_index[0], 1] - keypoints[..., group1_index[1], 1] #[*, 2]
+
+    f = calib[..., 0, 0] #[*]
+    center_depth = f * pred_height_3D / (F.relu(center_height) * down_ratio + EPS) #[*]
+    corner_02_depth = (f * pred_height_3D).unsqueeze(-1) / (F.relu(corner_02_height) * down_ratio + EPS) #[*, 2]
+    corner_13_depth = (f * pred_height_3D).unsqueeze(-1) / (F.relu(corner_13_height) * down_ratio + EPS) #[*, 2]
+
+    corner_02_depth = corner_02_depth.mean(dim=1)
+    corner_13_depth = corner_13_depth.mean(dim=1)
+
+    depths = torch.stack([center_depth, corner_02_depth, corner_13_depth], dim=-1)
+    depths = torch.clamp(depths, min_depth, max_depth)
+    return depths
 
 def _gather_feat(feat, ind, mask=None):
     dim = feat.size(2)

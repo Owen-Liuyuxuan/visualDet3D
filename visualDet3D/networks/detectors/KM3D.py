@@ -8,6 +8,7 @@ from torchvision.ops import nms
 from visualDet3D.networks.utils import DETECTOR_DICT
 from visualDet3D.networks.detectors.KM3D_core import KM3DCore
 from visualDet3D.networks.heads.km3d_head import KM3DHead
+from visualDet3D.networks.heads.monoflex_head import MonoFlexHead
 from visualDet3D.networks.lib.blocks import AnchorFlatten
 from visualDet3D.networks.lib.look_ground import LookGround
 from visualDet3D.networks.lib.ops.dcn.deform_conv import DeformConv
@@ -85,4 +86,12 @@ class KM3D(nn.Module):
         else:
             img_batch, calib = inputs
             return self.test_forward(img_batch, calib)
+
+@DETECTOR_DICT.register_module
+class MonoFlex(KM3D):
+    """
+        MonoFlex
+    """
+    def build_head(self, network_cfg):
+        self.bbox_head = MonoFlexHead(**(network_cfg.head))
 

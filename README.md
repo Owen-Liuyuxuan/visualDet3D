@@ -64,7 +64,7 @@ or manually check dependencies.
 
 ## Start Training
 
-Please check the corresponding task: [Mono3D](docs/mono3d.md), [Stereo3D](docs/stereo3d.md) [Depth Predictions](docs/monoDepth.md). More demo will be available through contributions and further paper submission.
+Please check the corresponding task: [Mono3D](docs/mono3d.md), [Stereo3D](docs/stereo3d.md), [Depth Predictions](docs/monoDepth.md). More demo will be available through contributions and further paper submission.
 
 ### Config and Path setup. 
 
