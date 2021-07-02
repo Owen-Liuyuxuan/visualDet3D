@@ -30,6 +30,8 @@ Also the official implementation of 2021 *ICRA* paper [**YOLOStereo3D: A Step Ba
 
 We further incorperate an *Unofficial* re-implementation of **Monocular 3D Detection with Geometric Constraints Embedding and Semi-supervised Training** (KM3D) as a reference on how to integrate with other frameworks. (Notice that the codes are from the [originally official repo](https://github.com/Banconxuan/RTM3D), and we **DO NOT** guarantee a complete re-implementation).
 
+Update (2021.07.02): We provide an *Unofficial* re-implementation of **Objects are Different: Flexible Monocular 3D Object Detection** (MonoFlex) with few additional codes, based on the KM3D structure. Many of the core codes are from [original official repo](https://github.com/zhangyp15/MonoFlex). We did not implement the edge merge operation and the corner loss, but we manage to maintain most of the performance based on the proposed depth fusion methods(validation AP reaches 15%).
+
 ## Key Features
 
 - **SOTA Performance** State of the art result on visual 3D detection.
