@@ -135,7 +135,7 @@ def decode_depth_inv_sigmoid(depth:torch.Tensor)->torch.Tensor:
     Returns:
         torch.Tensor: 3D depth for output
     """    
-    depth_decoded = 1 / torch.sigmoid(depth) - 1
+    depth_decoded = torch.exp(-depth) # 1 / torch.sigmoid(depth) - 1 ## These two are the same
     return depth_decoded
 
 def decode_depth_from_keypoints(keypoints:torch.Tensor,
