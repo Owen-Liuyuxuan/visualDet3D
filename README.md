@@ -32,6 +32,8 @@ We further incorperate an *Unofficial* re-implementation of **Monocular 3D Detec
 
 Update (2021.07.02): We provide an *Unofficial* re-implementation of **Objects are Different: Flexible Monocular 3D Object Detection** (MonoFlex) with few additional codes, based on the KM3D structure. Many of the core codes are from [original official repo](https://github.com/zhangyp15/MonoFlex). We did not implement the edge merge operation and the corner loss, but we manage to maintain most of the performance based on the proposed depth fusion methods(validation AP reaches 15%).
 
+Update (2021.12.11): We provide an *Unofficial* re-implmentation of **Digging Into Output Representation For Monocular 3D Object Detection** (Digging_M3D) to introduce an simple but important numerical trick to significantly improve the KITTI mAP scores and make a significant change to the KITTI leaderboard. Details can be found in the [paper](https://openreview.net/forum?id=mPlm356yMIP). At the time of the open-source, the paper has not been officially published, and we will keep up with the update of the paper.
+
 ## Key Features
 
 - **SOTA Performance** State of the art result on visual 3D detection.
