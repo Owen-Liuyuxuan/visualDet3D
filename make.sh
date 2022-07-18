@@ -5,7 +5,7 @@ set -e
 TORCH_VER=$(python3 -c "import torch;print(torch.__version__)")
 CUDA_VER=$(python3 -c "import torch;print(torch.version.cuda)")
 
-if [[ $CUDA_VER < "10.0" || $TORCH_VER < '1.3' ]] ; then 
+if [[ $CUDA_VER < "10.0" ]] ; then 
     echo "The current version of pytorch/cuda is $TORCH_VER/$CUDA_VER which could be not compatible with deformable convolution, we will not compile DCN for now. As long as you do not init DCN instance in code, the code will run fine."
 else
     pushd visualDet3D/networks/lib/ops/dcn
