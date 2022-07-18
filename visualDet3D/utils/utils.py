@@ -145,7 +145,7 @@ def cfg_from_file(cfg_filename:str)->EasyDict:
         sys.path.insert(0, temp_config_dir)
         cfg = getattr(importlib.import_module(temp_module_name), 'cfg')
         assert isinstance(cfg, EasyDict)
-        sys.path.pop()
+        sys.path.pop(0)
         del sys.modules[temp_module_name]
         temp_config_file.close()
 
