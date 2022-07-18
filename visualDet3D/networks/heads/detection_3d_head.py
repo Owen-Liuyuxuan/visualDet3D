@@ -376,6 +376,7 @@ class AnchorBasedDetection3DHead(nn.Module):
             bboxes = self.clipper(bboxes, img_batch)
         cls_score = cls_score[mask]
         max_score = max_score[mask]
+        bboxes    = bboxes[mask]
 
         cls_agnostic = getattr(self.test_cfg, 'cls_agnositc', True) # True -> directly NMS; False -> NMS with offsets different categories will not collide
         nms_iou_thr  = getattr(self.test_cfg, 'nms_iou_thr', 0.5)
