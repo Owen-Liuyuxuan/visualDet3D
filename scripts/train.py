@@ -21,6 +21,7 @@ import visualDet3D.data.kitti.dataset
 from visualDet3D.utils.timer import Timer
 from visualDet3D.utils.utils import LossLogger, cfg_from_file
 from visualDet3D.networks.optimizers import optimizers, schedulers
+from visualDet3D.data.dataloader import build_dataloader
 
 def main(config="config/config.py", experiment_name="default", world_size=1, local_rank=-1):
     """Main function for the training script.
@@ -74,11 +75,13 @@ def main(config="config/config.py", experiment_name="default", world_size=1, loc
     dataset_train = DATASET_DICT[cfg.data.train_dataset](cfg)
     dataset_val = DATASET_DICT[cfg.data.val_dataset](cfg, "validation")
 
-    dataloader_train = DataLoader(dataset_train, num_workers=cfg.data.num_workers,
-                                  batch_size=cfg.data.batch_size, collate_fn=dataset_train.collate_fn, shuffle=local_rank<0, drop_last=True,
-                                  sampler=torch.utils.data.DistributedSampler(dataset_train, num_replicas=world_size, rank=local_rank, shuffle=True) if local_rank >= 0 else None)
-    dataloader_val = DataLoader(dataset_val, num_workers=cfg.data.num_workers,
-                                batch_size=cfg.data.batch_size, collate_fn=dataset_val.collate_fn, shuffle=False, drop_last=True)
+    dataloader_train = build_dataloader(dataset_train,
+                                        num_workers=cfg.data.num_workers,
+                                        batch_size=cfg.data.batch_size,
+                                        collate_fn=dataset_train.collate_fn,
+                                        local_rank=local_rank,
+                                        world_size=world_size,
+                                        sampler_cfg=getattr(cfg.data, 'sampler', dict()))
 
     ## Create the model
     detector = DETECTOR_DICT[cfg.detector.name](cfg.detector)
