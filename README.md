@@ -44,7 +44,7 @@ Update (2021.12.11): We provide an *Unofficial* re-implmentation of **Digging In
 - **Global Path-based IMDB** Do not need data placed inside the folder, convienient for managing data and code separately.
 
 
-We provide start-up solutions for [Mono3D](docs/mono3d.md), [Stereo3D](docs/stereo3d.md), [Depth Predictions](docs/monoDepth.md) and more (until further publication).
+We provide start-up solutions for [Mono3D](docs/mono3d.md), [Stereo3D](docs/stereo3d.md), [Depth Predictions](docs/monoDepth.md) and more (until further publication). We also provide a [comprehensive cookbook](https://owen-liuyuxuan.github.io/papers_reading_sharing.github.io/3dDetection/my_cookbook/#synthetic-cookbook-for-usingtestingdemonstrating-visualdet3d-in-ros) to make visualDet3D work with other open-source repo to boost development process. 
 
 Reference: this repo borrows codes and ideas from [retinanet](https://github.com/yhenon/pytorch-retinanet),
 [mmdetection](https://github.com/open-mmlab/mmdetection),
